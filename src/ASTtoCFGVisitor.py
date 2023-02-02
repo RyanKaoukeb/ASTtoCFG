@@ -1,5 +1,7 @@
-# Example de visiteur qui genere un CFG
-#
+# This is an example of a visitor to create a CFG
+# You can start from it if you don't know how to start
+
+
 from code_analysis import ASTException, CFG, AST
 
 
@@ -42,6 +44,30 @@ class ASTtoCFGVisitor:
         self.cfg.add_edge(ctx['endId'], stopNodeId)
 
     # chain nodes
+    def visit_WHILE(self, ast_node_id: int, ctx: dict) -> int:
+        cfg_node = self.get_new_node()
+        self.cfg.set_node_ptr(ast_node_id, cfg_node)
+        self.cfg.set_type(cfg_node, self.ast.get_type(ast_node_id))
+        self.cfg.set_image(cfg_node, self.ast.get_image(ast_node_id))
+        self.cfg.add_edge(ctx["parent"], cfg_node)
+        condition_node = 0
+        ctx["endId"] = cfg_node
+
+        new_ctx = dict(ctx)
+        new_ctx["parent"] = cfg_node
+        for child_id in self.ast.get_children(ast_node_id):
+            if self.ast.get_type(child_id) == "Condition":
+                condition_node = child_id
+            self.visit_node(child_id, new_ctx)
+            if new_ctx["endId"] is not None:
+                new_ctx["parent"] = new_ctx["endId"]
+        ctx["endId"] = new_ctx["endId"]
+
+        self.cfg.add_edge(ctx["endId"], cfg_node)
+        ctx["endId"] = condition_node
+
+        return cfg_node
+
     def visit_FUNCTION(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node)
@@ -91,11 +117,19 @@ class ASTtoCFGVisitor:
         new_ctx["parent"] = cfg_node
         for child_id in self.ast.get_children(ast_node_id):
             self.visit_node(child_id, new_ctx)
-            if new_ctx["endId"] is not None:
-                new_ctx["parent"] = new_ctx["endId"]
+            new_ctx["parent"] = new_ctx["endId"]
         ctx["endId"] = new_ctx["endId"]
 
         return cfg_node
+
+    def visit_GENERIC_BLOCK(self, ast_node_id: int, ctx: dict):
+        new_ctx = dict(ctx)  # clone ctx
+        for child_id in self.ast.get_children(ast_node_id):
+            self.visit_node(child_id, new_ctx)
+            new_ctx["parent"] = new_ctx["endId"]
+        ctx["endId"] = new_ctx["endId"]
+
+        return None
 
     def visit_BINOP(self, ast_node_id: int, ctx: dict) -> int:
         # Create BinOP node
@@ -126,15 +160,16 @@ class ASTtoCFGVisitor:
         if cur_type is None:
             raise ASTException("Missing type in a node")
 
-        if cur_type == "FunctionCall":
-
-            self.visit_FUNCTION(ast_node_id, ctx)
-        elif cur_type == "OTHER_TYPE":
-            # visit_OTHER_TYPE(ast_node_id, ctx)
-            pass
-        elif cur_type == "BinOP":
+        if cur_type in ["BinOP", "RelOP", "LogicOP"]:
             self.visit_BINOP(ast_node_id, ctx)
-            pass
+        elif cur_type == "While":
+            self.visit_WHILE(ast_node_id, ctx)
+        elif cur_type == "FunctionCall":
+            self.visit_FUNCTION(ast_node_id, ctx)
+        elif cur_type in ["Block", "Start"]:
+            self.visit_GENERIC_BLOCK(ast_node_id, ctx)
+        elif cur_type in ["PLACEHOLDER"]:  # Node to ignore
+            self.visit_passthrough(ast_node_id, ctx)
         else:
             self.visit_GENERIC(ast_node_id, ctx)
 
