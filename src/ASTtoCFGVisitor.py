@@ -67,6 +67,19 @@ class ASTtoCFGVisitor:
         ctx["endId"] = condition_node
 
         return cfg_node
+    
+    def visit_IF(self, ast_node_id: int, ctx: dict) -> int:
+        cfg_node = self.get_new_node()
+        self.cfg.set_node_ptr(ast_node_id, cfg_node)
+        self.cfg.set_type(cfg_node, self.ast.get_type(ast_node_id))
+        self.cfg.set_image(cfg_node, self.ast.get_image(ast_node_id))
+        self.cfg.add_edge(ctx["parent"], cfg_node)
+        condition_node = 0
+        ctx["endId"] = cfg_node
+
+        
+
+        return cfg_node
 
     def visit_FUNCTION(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
