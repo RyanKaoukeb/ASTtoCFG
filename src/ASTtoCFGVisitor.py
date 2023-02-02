@@ -64,7 +64,12 @@ class ASTtoCFGVisitor:
         ctx["endId"] = new_ctx["endId"]
 
         self.cfg.add_edge(ctx["endId"], cfg_node)
-        ctx["endId"] = condition_node
+
+        node_end = self.get_new_node()
+        self.cfg.set_type(node_end, "WhileEnd")
+        self.cfg.add_edge(condition_node, node_end)
+
+        ctx["endId"] = node_end
 
         return cfg_node
 
