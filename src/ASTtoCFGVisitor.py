@@ -10,6 +10,8 @@ class ASTtoCFGVisitor:
         self.ast = None
         self.cfg = CFG()
         self.iNextNode = 0
+        self.while_statements = [[], []]  # [break, continue]
+        self.jumped_code = None
 
     def get_new_node(self) -> int:
         self.iNextNode += 1
@@ -37,6 +39,10 @@ class ASTtoCFGVisitor:
         ctx['scope'] = entryNodeId
         ctx['stopId'] = stopNodeId
 
+        jumped_node = self.get_new_node()
+        self.cfg.set_type(jumped_node, "Jumped_code")
+        self.jumped_code = jumped_node
+
         if self.ast.get_type(rootAST) == "Start":
             self.cfg.set_node_ptr(rootAST, entryNodeId)
 
@@ -44,6 +50,23 @@ class ASTtoCFGVisitor:
         self.cfg.add_edge(ctx['endId'], stopNodeId)
 
     # chain nodes
+
+    def visit_BREAK_CONTINUE(self, ast_node_id: int, ctx: dict) -> int:
+        cfg_node = self.get_new_node()
+        self.cfg.set_node_ptr(ast_node_id, cfg_node)
+        self.cfg.set_type(cfg_node, self.ast.get_type(ast_node_id))
+        self.cfg.set_image(cfg_node, self.ast.get_image(ast_node_id))
+        print("debug: ", ctx["parent"], " ", cfg_node)
+        self.cfg.add_edge(ctx["parent"], cfg_node)
+        ctx["endId"] = self.jumped_code
+
+        if self.ast.get_type(ast_node_id) == "Break":
+            self.while_statements[0].append(cfg_node)
+        else:
+            self.while_statements[1].append(cfg_node)
+
+        return cfg_node
+
     def visit_WHILE(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node)
@@ -56,9 +79,11 @@ class ASTtoCFGVisitor:
         new_ctx = dict(ctx)
         new_ctx["parent"] = cfg_node
         for child_id in self.ast.get_children(ast_node_id):
+            self.visit_node(child_id, new_ctx)
+
             if self.ast.get_type(child_id) == "Condition":
                 condition_node = child_id
-            self.visit_node(child_id, new_ctx)
+
             if new_ctx["endId"] is not None:
                 new_ctx["parent"] = new_ctx["endId"]
         ctx["endId"] = new_ctx["endId"]
@@ -70,6 +95,13 @@ class ASTtoCFGVisitor:
         self.cfg.add_edge(condition_node, node_end)
 
         ctx["endId"] = node_end
+
+        for jump in self.while_statements[0]:
+            self.cfg.add_edge(jump, node_end)
+        for jump in self.while_statements[1]:
+            self.cfg.add_edge(jump, cfg_node)
+
+        self.while_statements = [[], []]
 
         return cfg_node
 
@@ -167,6 +199,8 @@ class ASTtoCFGVisitor:
 
         if cur_type in ["BinOP", "RelOP", "LogicOP"]:
             self.visit_BINOP(ast_node_id, ctx)
+        elif cur_type == "Break" or cur_type == "Continue":
+            self.visit_BREAK_CONTINUE(ast_node_id, ctx)
         elif cur_type == "While":
             self.visit_WHILE(ast_node_id, ctx)
         elif cur_type == "FunctionCall":
