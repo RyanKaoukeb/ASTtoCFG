@@ -73,6 +73,35 @@ class ASTtoCFGVisitor:
 
         return cfg_node
 
+    def visit_IF(self, ast_node_id: int, ctx: dict) -> int:
+        cfg_node = self.get_new_node()
+        self.cfg.set_node_ptr(ast_node_id, cfg_node)
+        self.cfg.set_type(cfg_node, self.ast.get_type(ast_node_id))
+        self.cfg.set_image(cfg_node, self.ast.get_image(ast_node_id))
+        self.cfg.add_edge(ctx["parent"], cfg_node)
+        condition_node = 0
+        ctx["endId"] = cfg_node
+
+        new_ctx = dict(ctx)
+        new_ctx["parent"] = cfg_node
+        for child_id in self.ast.get_children(ast_node_id):
+            if self.ast.get_type(child_id) == "Condition":
+                condition_node = child_id
+            self.visit_node(child_id, new_ctx)
+            if new_ctx["endId"] is not None:
+                new_ctx["parent"] = new_ctx["endId"]
+        ctx["endId"] = new_ctx["endId"]
+
+        self.cfg.add_edge(ctx["endId"], cfg_node)
+
+        node_end = self.get_new_node()
+        self.cfg.set_type(node_end, "WhileEnd")
+        self.cfg.add_edge(condition_node, node_end)
+
+        ctx["endId"] = node_end
+
+        return cfg_node
+
     def visit_FUNCTION(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node)
@@ -169,6 +198,8 @@ class ASTtoCFGVisitor:
             self.visit_BINOP(ast_node_id, ctx)
         elif cur_type == "While":
             self.visit_WHILE(ast_node_id, ctx)
+        elif cur_type == "If":
+            self.visit_IF(ast_node_id, ctx)
         elif cur_type == "FunctionCall":
             self.visit_FUNCTION(ast_node_id, ctx)
         elif cur_type in ["Block", "Start"]:
