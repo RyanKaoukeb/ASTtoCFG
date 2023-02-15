@@ -198,7 +198,7 @@ class ASTtoCFGVisitor:
             self.visit_BINOP(ast_node_id, ctx)
         elif cur_type == "While":
             self.visit_WHILE(ast_node_id, ctx)
-        elif cur_type == "If":
+        elif cur_type == "IfThenElseStatement":
             self.visit_IF(ast_node_id, ctx)
         elif cur_type == "FunctionCall":
             self.visit_FUNCTION(ast_node_id, ctx)
