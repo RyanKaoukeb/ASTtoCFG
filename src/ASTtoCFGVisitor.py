@@ -250,7 +250,7 @@ class ASTtoCFGVisitor:
             self.visit_BREAK_CONTINUE(ast_node_id, ctx)
         elif cur_type == "While":
             self.visit_WHILE(ast_node_id, ctx)
-        elif cur_type == "IfThenElseStatement":
+        elif cur_type == "IfThenElseStatement" or cur_type == "IfThenStatement":
             self.visit_IF(ast_node_id, ctx)
         elif cur_type == "FunctionCall":
             self.visit_FUNCTION(ast_node_id, ctx)
