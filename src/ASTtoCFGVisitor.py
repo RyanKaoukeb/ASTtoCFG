@@ -105,6 +105,47 @@ class ASTtoCFGVisitor:
 
         return cfg_node
 
+    # If fonction
+    def visit_IF(self, ast_node_id: int, ctx: dict) -> int:
+
+        #Custom IF block
+        cfg_node_IF = self.get_new_node()
+        self.cfg.set_node_ptr(ast_node_id, cfg_node_IF)
+        self.cfg.set_type(cfg_node_IF, "If")
+        self.cfg.add_edge(ctx["parent"], cfg_node_IF)
+
+        #We close the call
+        cfg_node_endIF = self.get_new_node()
+        self.cfg.set_type(cfg_node_endIF, "IfEnd")
+
+        ctx["endId"] = cfg_node_IF
+        new_ctx = dict(ctx) # clone ctx
+        new_ctx["parent"] = cfg_node_IF
+
+        for idx, child_id in enumerate(self.ast.get_children(ast_node_id)):
+            if self.ast.get_type(child_id) == "Condition":
+                for subchild_id in self.ast.get_children(child_id):
+                    self.visit_node(subchild_id, new_ctx)
+                    new_ctx["parent"] = new_ctx["endId"]
+                #Condition
+                cfg_node_cond = self.get_new_node()
+                self.cfg.set_type(cfg_node_cond, "Condition")
+                self.cfg.add_edge(new_ctx["endId"], cfg_node_cond)
+                new_ctx["parent"] = cfg_node_cond
+            elif idx == 1:
+                for subchild_id in self.ast.get_children(child_id):
+                    self.visit_node(subchild_id, new_ctx)
+                    new_ctx["endTrue"] = new_ctx["endId"]
+                self.cfg.add_edge(new_ctx["endTrue"], cfg_node_endIF)
+            elif idx == 2:
+                for subchild_id in self.ast.get_children(child_id):
+                    self.visit_node(subchild_id, new_ctx)
+                    new_ctx["endFalse"] = new_ctx["endId"]
+                self.cfg.add_edge(new_ctx["endFalse"], cfg_node_endIF)
+
+        ctx["endId"] = cfg_node_endIF
+
+
     def visit_FUNCTION(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node)
@@ -203,6 +244,8 @@ class ASTtoCFGVisitor:
             self.visit_BREAK_CONTINUE(ast_node_id, ctx)
         elif cur_type == "While":
             self.visit_WHILE(ast_node_id, ctx)
+        elif cur_type == "IfThenElseStatement":
+            self.visit_IF(ast_node_id, ctx)
         elif cur_type == "FunctionCall":
             self.visit_FUNCTION(ast_node_id, ctx)
         elif cur_type in ["Block", "Start"]:
