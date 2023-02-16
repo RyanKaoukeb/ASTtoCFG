@@ -119,7 +119,7 @@ class ASTtoCFGVisitor:
         self.cfg.set_type(cfg_node_endIF, "IfEnd")
 
         ctx["endId"] = cfg_node_IF
-        new_ctx = dict(ctx) # clone ctx
+        new_ctx = dict(ctx) 
         new_ctx["parent"] = cfg_node_IF
 
         for idx, child_id in enumerate(self.ast.get_children(ast_node_id)):
@@ -136,12 +136,18 @@ class ASTtoCFGVisitor:
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endTrue"] = new_ctx["endId"]
-                self.cfg.add_edge(new_ctx["endTrue"], cfg_node_endIF)
+                cfg_node_argument = self.get_new_node()
+                self.cfg.set_type(cfg_node_argument, "Argument")
+                self.cfg.add_edge(new_ctx["endId"], cfg_node_argument)
+                self.cfg.add_edge(cfg_node_argument, cfg_node_endIF)
             elif idx == 2:
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endFalse"] = new_ctx["endId"]
-                self.cfg.add_edge(new_ctx["endFalse"], cfg_node_endIF)
+                cfg_node_argument = self.get_new_node()
+                self.cfg.set_type(cfg_node_argument, "Argument")
+                self.cfg.add_edge(new_ctx["endFalse"], cfg_node_argument)                
+                self.cfg.add_edge(cfg_node_argument, cfg_node_endIF)
 
         ctx["endId"] = cfg_node_endIF
 
