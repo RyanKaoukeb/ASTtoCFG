@@ -108,16 +108,16 @@ class ASTtoCFGVisitor:
 
         return cfg_node
 
-    # If fonction
+    
     def visit_IF(self, ast_node_id: int, ctx: dict) -> int:
 
-        # Custom IF block
+        # On crée un bloc IF
         cfg_node_IF = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node_IF)
         self.cfg.set_type(cfg_node_IF, "If")
         self.cfg.add_edge(ctx["parent"], cfg_node_IF)
 
-        # We close the call
+        # On crée le bloc de fin de chaine EndIf
         cfg_node_endIF = self.get_new_node()
         self.cfg.set_type(cfg_node_endIF, "IfEnd")
 
@@ -125,6 +125,7 @@ class ASTtoCFGVisitor:
         new_ctx = dict(ctx)
         new_ctx["parent"] = cfg_node_IF
         index = 0
+        #On parcourt les enfants du noeud If
         for idx, child_id in enumerate(self.ast.get_children(ast_node_id)):
             if self.ast.get_type(child_id) == "Condition":
                 for subchild_id in self.ast.get_children(child_id):
@@ -150,6 +151,8 @@ class ASTtoCFGVisitor:
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endFalse"] = new_ctx["endId"]
+                    
+                #On rajoute un Noeud Argument en fin de chaine
                 cfg_node_argument = self.get_new_node()
                 self.cfg.set_type(cfg_node_argument, "Argument")
                 self.cfg.add_edge(new_ctx["endFalse"], cfg_node_argument)
