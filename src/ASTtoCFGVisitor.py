@@ -140,7 +140,9 @@ class ASTtoCFGVisitor:
                 self.cfg.set_type(cfg_node_argument, "Argument")
                 self.cfg.add_edge(new_ctx["endId"], cfg_node_argument)
                 self.cfg.add_edge(cfg_node_argument, cfg_node_endIF)
+            
             elif idx == 2:
+                new_ctx["parent"] = cfg_node_cond
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endFalse"] = new_ctx["endId"]
