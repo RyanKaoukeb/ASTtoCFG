@@ -11,7 +11,6 @@ class ASTtoCFGVisitor:
         self.cfg = CFG()
         self.iNextNode = 0
         self.while_statements = [[], []]  # [break, continue]
-        self.jumped_code = None
 
     def get_new_node(self) -> int:
         self.iNextNode += 1
@@ -39,9 +38,7 @@ class ASTtoCFGVisitor:
         ctx['scope'] = entryNodeId
         ctx['stopId'] = stopNodeId
 
-        jumped_node = self.get_new_node()
-        self.cfg.set_type(jumped_node, "Jumped_code")
-        self.jumped_code = jumped_node
+        
 
         if self.ast.get_type(rootAST) == "Start":
             self.cfg.set_node_ptr(rootAST, entryNodeId)
@@ -58,7 +55,7 @@ class ASTtoCFGVisitor:
         self.cfg.set_image(cfg_node, self.ast.get_image(ast_node_id))
         print("debug: ", ctx["parent"], " ", cfg_node)
         self.cfg.add_edge(ctx["parent"], cfg_node)
-        ctx["endId"] = self.jumped_code
+        ctx["endId"] = cfg_node
 
         if self.ast.get_type(ast_node_id) == "Break":
             self.while_statements[0].append(cfg_node)
@@ -97,8 +94,14 @@ class ASTtoCFGVisitor:
         ctx["endId"] = node_end
 
         for jump in self.while_statements[0]:
+            chi = self.cfg.get_any_children(jump)
+            for c in chi:
+                self.cfg.remove_edge(jump, c)
             self.cfg.add_edge(jump, node_end)
         for jump in self.while_statements[1]:
+            chi = self.cfg.get_any_children(jump)
+            for c in chi:
+                self.cfg.remove_edge(jump, c)
             self.cfg.add_edge(jump, cfg_node)
 
         self.while_statements = [[], []]
@@ -108,31 +111,32 @@ class ASTtoCFGVisitor:
     # If fonction
     def visit_IF(self, ast_node_id: int, ctx: dict) -> int:
 
-        #Custom IF block
+        # Custom IF block
         cfg_node_IF = self.get_new_node()
         self.cfg.set_node_ptr(ast_node_id, cfg_node_IF)
         self.cfg.set_type(cfg_node_IF, "If")
         self.cfg.add_edge(ctx["parent"], cfg_node_IF)
 
-        #We close the call
+        # We close the call
         cfg_node_endIF = self.get_new_node()
         self.cfg.set_type(cfg_node_endIF, "IfEnd")
 
         ctx["endId"] = cfg_node_IF
-        new_ctx = dict(ctx) 
+        new_ctx = dict(ctx)
         new_ctx["parent"] = cfg_node_IF
-
+        index = 0
         for idx, child_id in enumerate(self.ast.get_children(ast_node_id)):
             if self.ast.get_type(child_id) == "Condition":
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["parent"] = new_ctx["endId"]
-                #Condition
+                # Condition
                 cfg_node_cond = self.get_new_node()
                 self.cfg.set_type(cfg_node_cond, "Condition")
                 self.cfg.add_edge(new_ctx["endId"], cfg_node_cond)
                 new_ctx["parent"] = cfg_node_cond
             elif idx == 1:
+                index = 1
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endTrue"] = new_ctx["endId"]
@@ -140,19 +144,21 @@ class ASTtoCFGVisitor:
                 self.cfg.set_type(cfg_node_argument, "Argument")
                 self.cfg.add_edge(new_ctx["endId"], cfg_node_argument)
                 self.cfg.add_edge(cfg_node_argument, cfg_node_endIF)
-            
+
             elif idx == 2:
-                new_ctx["parent"] = cfg_node_cond
+                index = 2
                 for subchild_id in self.ast.get_children(child_id):
                     self.visit_node(subchild_id, new_ctx)
                     new_ctx["endFalse"] = new_ctx["endId"]
                 cfg_node_argument = self.get_new_node()
                 self.cfg.set_type(cfg_node_argument, "Argument")
-                self.cfg.add_edge(new_ctx["endFalse"], cfg_node_argument)                
+                self.cfg.add_edge(new_ctx["endFalse"], cfg_node_argument)
                 self.cfg.add_edge(cfg_node_argument, cfg_node_endIF)
 
-        ctx["endId"] = cfg_node_endIF
+        if index == 1:
+            self.cfg.add_edge(cfg_node_cond, cfg_node_endIF)
 
+        ctx["endId"] = cfg_node_endIF
 
     def visit_FUNCTION(self, ast_node_id: int, ctx: dict) -> int:
         cfg_node = self.get_new_node()
